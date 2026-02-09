@@ -12,6 +12,11 @@ on:
         required: true
         type: boolean
         default: true
+      hep_root_baseline:
+        description: "Run optional ROOT/RooFit reference-path baseline for HEP (best-effort)"
+        required: true
+        type: boolean
+        default: false
       run_pharma:
         description: "Run pharma suite"
         required: true
@@ -189,6 +194,7 @@ jobs:
           RUN_BAYESIAN: ${{ inputs.run_bayesian }}
           RUN_ML: ${{ inputs.run_ml }}
           BAYESIAN_BACKENDS: ${{ inputs.bayesian_backends }}
+          HEP_ROOT_BASELINE: ${{ inputs.hep_root_baseline }}
         run: |
           set -euo pipefail
           args=(
@@ -201,6 +207,9 @@ jobs:
           )
           if [ "${RUN_HEP}" = "true" ]; then
             args+=(--hep)
+            if [ "${HEP_ROOT_BASELINE}" = "true" ]; then
+              args+=(--hep-root-baseline)
+            fi
           fi
           if [ "${RUN_PHARMA}" = "true" ]; then
             args+=(--pharma)

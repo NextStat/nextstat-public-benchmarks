@@ -83,7 +83,8 @@ jobs:
             --suite "weekly-cpu" \
             --nextstat-wheel "tmp/${NEXTSTAT_WHEEL_NAME}" \
             --fit --fit-repeat 3 \
-            --hep --pharma --bayesian --ml \
+            --hep --hep-root-baseline \
+            --pharma --bayesian --ml \
             --ml-backends numpy,jax_jit_cpu
 
       - name: Update snapshot registry (commit-backed)
