@@ -1,0 +1,23 @@
+{
+  "channels": [
+    {
+      "name": "c",
+      "samples": [
+        {
+          "name": "signal",
+          "data": [5.0, 5.0, 5.0],
+          "modifiers": [{ "name": "mu", "type": "normfactor", "data": null }]
+        },
+        {
+          "name": "background",
+          "data": [50.0, 50.0, 50.0],
+          "modifiers": []
+        }
+      ]
+    }
+  ],
+  "observations": [{ "name": "c", "data": [53.0, 53.0, 53.0] }],
+  "measurements": [{ "name": "m", "config": { "poi": "mu", "parameters": [] } }],
+  "version": "1.0.0"
+}
+

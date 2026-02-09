@@ -43,3 +43,7 @@ With the optional ROOT/RooFit reference-path baseline (may be skipped if PyROOT 
 ```bash
 python suite.py --deterministic --root-baseline --out-dir ../../out/hep_root
 ```
+
+ROOT baseline support note:
+- The current reference-path implementation is intentionally minimal and only runs on workspaces that contain *only* a POI `normfactor` (`mu`) and no other modifiers/systematics.
+- Unsupported workspaces are emitted as `status="skipped"` with an actionable `reason`.

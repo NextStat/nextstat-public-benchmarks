@@ -221,6 +221,19 @@ def main() -> int:
                 "dataset_sha256": None,
             }
         )
+        # A tiny normfactor-only workspace intended to be compatible with the ROOT/RooFit reference path.
+        rootref_path = ds_dir / "root_ref_normfactor_only.json"
+        if rootref_path.exists():
+            suite_cases.append(
+                {
+                    "case_id": "root_ref_normfactor_only",
+                    "workspace_path": rootref_path,
+                    "workspace_obj": None,
+                    "measurement": "m",
+                    "dataset_id": os.path.relpath(rootref_path, repo_root),
+                    "dataset_sha256": None,
+                }
+            )
     if "complex" in case_groups:
         complex_path = ds_dir / "complex_workspace.json"
         if complex_path.exists():

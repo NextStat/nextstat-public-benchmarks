@@ -32,7 +32,27 @@
         "root_version": { "type": "string" },
         "note": { "type": "string" }
       }
+    },
+    "fit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["muhat", "nll", "minimizer_rc"],
+      "properties": {
+        "muhat": { "type": "number" },
+        "nll": { "type": "number" },
+        "minimizer_rc": { "type": "integer" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["poi0", "nll_mu0", "q0", "z0"],
+      "properties": {
+        "poi0": { "type": "number" },
+        "nll_mu0": { "type": "number" },
+        "q0": { "type": "number", "minimum": 0 },
+        "z0": { "type": "number", "minimum": 0 }
+      }
     }
   }
 }
-
