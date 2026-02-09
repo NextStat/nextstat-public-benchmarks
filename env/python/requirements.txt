@@ -1,0 +1,11 @@
+# Pinned harness dependencies for the public benchmarks repo.
+#
+# Note: NextStat itself is expected to be installed separately (wheel or pip package),
+# because benchmark snapshots must pin the *exact* NextStat build being measured.
+
+pyhf==0.7.6
+numpy==2.2.3
+jsonschema==4.25.1
+pydantic==2.10.6
+rich==13.9.4
+

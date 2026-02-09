@@ -1,0 +1,43 @@
+name: Verify Benchmarks Harness
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install harness deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r env/python/requirements.txt
+
+      - name: Install pinned NextStat wheel
+        env:
+          NEXTSTAT_WHEEL_URL: ${{ vars.NEXTSTAT_WHEEL_URL }}
+          NEXTSTAT_WHEEL_SHA256: ${{ vars.NEXTSTAT_WHEEL_SHA256 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEXTSTAT_WHEEL_URL}" ] || [ -z "${NEXTSTAT_WHEEL_SHA256}" ]; then
+            echo "Missing GitHub Actions variables: NEXTSTAT_WHEEL_URL / NEXTSTAT_WHEEL_SHA256"
+            echo "Set them to the exact NextStat wheel build you want to benchmark (pinned + hash-verified)."
+            exit 2
+          fi
+          mkdir -p tmp
+          curl -L "${NEXTSTAT_WHEEL_URL}" -o tmp/nextstat.whl
+          echo "${NEXTSTAT_WHEEL_SHA256}  tmp/nextstat.whl" | sha256sum -c -
+          python -m pip install tmp/nextstat.whl
+
+      - name: "Smoke: HEP suite"
+        run: |
+          python suites/hep/run.py --deterministic --out out/hep_simple_nll.json

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/pharma_baseline_result_v1.schema.json",
+  "title": "NextStat Pharma Baseline Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "baseline", "case", "status", "meta"],
+  "properties": {
+    "schema_version": { "const": "nextstat.pharma_baseline_result.v1" },
+    "baseline": { "type": "string", "minLength": 1 },
+    "case": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["ok", "skipped", "failed"] },
+    "reason": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["r_version", "platform"],
+      "properties": {
+        "r_version": { "type": "string" },
+        "platform": { "type": "string" }
+      }
+    },
+    "packages": { "type": "object", "additionalProperties": true },
+    "timing": { "type": "object", "additionalProperties": true }
+  }
+}
+

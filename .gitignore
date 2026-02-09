@@ -1,0 +1,10 @@
+# Local outputs (snapshots, packaging, caches)
+manifests/snapshots/
+out/
+tmp/
+zenodo/out/
+
+# Python caches
+__pycache__/
+*.pyc
+

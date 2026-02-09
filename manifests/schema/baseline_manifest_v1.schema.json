@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/baseline_manifest_v1.schema.json",
+  "title": "NextStat Baseline Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "snapshot_id", "deterministic", "harness", "nextstat", "environment", "datasets", "results"],
+  "properties": {
+    "schema_version": { "const": "nextstat.baseline_manifest.v1" },
+    "snapshot_id": { "type": "string", "minLength": 1 },
+    "deterministic": { "type": "boolean" },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "git_commit"],
+      "properties": {
+        "repo": { "type": "string", "minLength": 1 },
+        "git_commit": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nextstat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version"],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "wheel_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "wheel_url": { "type": "string", "minLength": 1 },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repo": { "type": "string", "minLength": 1 },
+            "ref": { "type": "string", "minLength": 1 },
+            "git_commit": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["python", "platform"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" }
+      }
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sha256"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["suite", "path", "sha256"],
+        "properties": {
+          "suite": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    }
+  }
+}

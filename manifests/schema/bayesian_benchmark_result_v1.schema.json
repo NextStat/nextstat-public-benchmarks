@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/bayesian_benchmark_result_v1.schema.json",
+  "title": "NextStat Bayesian Benchmark Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite",
+    "case",
+    "deterministic",
+    "status",
+    "meta",
+    "dataset",
+    "config",
+    "timing",
+    "diagnostics_summary"
+  ],
+  "properties": {
+    "schema_version": { "const": "nextstat.bayesian_benchmark_result.v1" },
+    "suite": { "const": "bayesian" },
+    "case": { "type": "string", "minLength": 1 },
+    "backend": { "type": "string", "enum": ["nextstat", "cmdstanpy", "pymc"] },
+    "deterministic": { "type": "boolean" },
+    "status": { "type": "string", "enum": ["ok", "warn", "failed"] },
+    "reason": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "platform", "nextstat_version"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" },
+        "nextstat_version": { "type": "string" }
+      }
+    },
+    "backend_meta": {
+      "type": "object",
+      "description": "Optional backend-specific environment metadata (e.g. cmdstan version, pymc version).",
+      "additionalProperties": true
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model_type": { "type": "string" },
+        "n_params": { "type": "integer", "minimum": 0 },
+        "param_names": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_chains", "n_warmup", "n_samples", "seed", "max_treedepth", "target_accept", "init_jitter_rel"],
+      "properties": {
+        "n_chains": { "type": "integer", "minimum": 1 },
+        "n_warmup": { "type": "integer", "minimum": 0 },
+        "n_samples": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "max_treedepth": { "type": "integer", "minimum": 1 },
+        "target_accept": { "type": "number", "minimum": 0, "maximum": 1 },
+        "init_jitter_rel": { "type": "number", "minimum": 0 }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wall_time_s"],
+      "properties": {
+        "wall_time_s": { "type": "number", "minimum": 0 },
+        "ess_bulk_per_sec": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number", "minimum": 0 },
+            "median": { "type": "number", "minimum": 0 }
+          }
+        },
+        "ess_tail_per_sec": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number", "minimum": 0 },
+            "median": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "diagnostics_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "divergence_rate",
+        "max_treedepth_rate",
+        "max_r_hat",
+        "min_ess_bulk",
+        "min_ess_tail",
+        "min_ebfmi"
+      ],
+      "properties": {
+        "divergence_rate": { "type": ["number", "null"], "minimum": 0 },
+        "max_treedepth_rate": { "type": ["number", "null"], "minimum": 0 },
+        "max_r_hat": { "type": ["number", "null"], "minimum": 0 },
+        "min_ess_bulk": { "type": ["number", "null"], "minimum": 0 },
+        "min_ess_tail": { "type": ["number", "null"], "minimum": 0 },
+        "min_ebfmi": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

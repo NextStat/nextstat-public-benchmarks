@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/bayesian_benchmark_suite_result_v1.schema.json",
+  "title": "NextStat Bayesian Benchmark Suite Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "suite", "deterministic", "meta", "cases", "summary"],
+  "properties": {
+    "schema_version": { "const": "nextstat.bayesian_benchmark_suite_result.v1" },
+    "suite": { "const": "bayesian" },
+    "deterministic": { "type": "boolean" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "platform", "nextstat_version"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" },
+        "nextstat_version": { "type": "string" }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case", "path", "sha256", "status"],
+        "properties": {
+          "case": { "type": "string", "minLength": 1 },
+          "backend": { "type": "string", "enum": ["nextstat", "cmdstanpy", "pymc"] },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "status": { "type": "string", "enum": ["ok", "warn", "failed"] },
+          "wall_time_s": { "type": ["number", "null"], "minimum": 0 },
+          "min_ess_bulk": { "type": ["number", "null"], "minimum": 0 },
+          "min_ess_tail": { "type": ["number", "null"], "minimum": 0 },
+          "max_r_hat": { "type": ["number", "null"], "minimum": 0 },
+          "min_ess_bulk_per_sec": { "type": ["number", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_cases", "n_ok", "n_warn", "n_failed", "worst_case"],
+      "properties": {
+        "n_cases": { "type": "integer", "minimum": 0 },
+        "n_ok": { "type": "integer", "minimum": 0 },
+        "n_warn": { "type": "integer", "minimum": 0 },
+        "n_failed": { "type": "integer", "minimum": 0 },
+        "worst_case": { "type": "string" }
+      }
+    }
+  }
+}

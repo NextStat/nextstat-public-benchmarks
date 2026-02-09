@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/pharma_benchmark_result_v1.schema.json",
+  "title": "NextStat Pharma Benchmark Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "suite", "case", "deterministic", "meta", "dataset", "model", "timing"],
+  "properties": {
+    "schema_version": { "const": "nextstat.pharma_benchmark_result.v1" },
+    "suite": { "const": "pharma" },
+    "case": { "type": "string", "minLength": 1 },
+    "deterministic": { "type": "boolean" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "platform", "nextstat_version"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" },
+        "nextstat_version": { "type": "string" }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "spec": { "type": "object" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "n_subjects", "n_obs", "n_params"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "n_subjects": { "type": "integer", "minimum": 0 },
+        "n_obs": { "type": "integer", "minimum": 0 },
+        "n_params": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nll_time_s_per_call"],
+      "properties": {
+        "nll_time_s_per_call": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nextstat"],
+          "properties": {
+            "nextstat": { "type": "number", "minimum": 0 }
+          }
+        },
+        "raw": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["number", "repeat", "target_s", "policy", "per_call_s"],
+          "properties": {
+            "number": { "type": "integer", "minimum": 1 },
+            "repeat": { "type": "integer", "minimum": 1 },
+            "target_s": { "type": "number", "minimum": 0 },
+            "policy": { "type": "string", "enum": ["min", "median"] },
+            "per_call_s": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["nextstat"],
+              "properties": {
+                "nextstat": { "type": "array", "items": { "type": "number", "minimum": 0 } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "fit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ok", "skipped", "failed"] },
+        "reason": { "type": "string" },
+        "time_s": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nextstat"],
+          "properties": {
+            "nextstat": { "type": "number", "minimum": 0 }
+          }
+        },
+        "raw": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repeat", "policy", "per_fit_s"],
+          "properties": {
+            "repeat": { "type": "integer", "minimum": 1 },
+            "policy": { "type": "string", "enum": ["min", "median"] },
+            "per_fit_s": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["nextstat"],
+              "properties": {
+                "nextstat": { "type": "array", "items": { "type": "number", "minimum": 0 } }
+              }
+            }
+          }
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nextstat_nll": { "type": "number" },
+            "nextstat_success": { "type": "boolean" },
+            "nextstat_converged": { "type": "boolean" },
+            "nextstat_n_iter": { "type": "integer", "minimum": 0 },
+            "nextstat_n_evaluations": { "type": "integer", "minimum": 0 },
+            "nextstat_termination_reason": { "type": "string" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "ok" } }, "required": ["status"] },
+          "then": { "required": ["time_s", "raw"] }
+        }
+      ]
+    }
+  }
+}
+

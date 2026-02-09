@@ -1,0 +1,19 @@
+# Optional pinned deps for the ML suite (CUDA via JAX).
+#
+# This is a template: CUDA wheels depend on the CUDA major version (and driver).
+# Follow the official JAX install guidance for your platform, then pin versions.
+#
+# Recommended default for CI GPU runners: Python 3.12.
+#
+# Typical CUDA12 install pattern:
+#   pip install -r env/python/requirements.txt
+#   pip install -r env/python/requirements-ml-jax-cuda12.txt
+#
+# Requires:
+# - NVIDIA driver on the host
+# - CUDA runtime compatible with the chosen jaxlib wheel
+#
+# See: https://jax.readthedocs.io/en/latest/installation.html
+
+-f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+jax[cuda12]==0.4.38

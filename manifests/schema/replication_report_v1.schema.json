@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/replication_report_v1.schema.json",
+  "title": "NextStat Replication Report v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "original",
+    "replica",
+    "comparison",
+    "replica_snapshot_index"
+  ],
+  "properties": {
+    "schema_version": { "const": "nextstat.replication_report.v1" },
+    "generated_at": { "type": "string" },
+    "original": {
+      "type": "object",
+      "required": ["snapshot_id", "suite", "snapshot_index_sha256"],
+      "properties": {
+        "snapshot_id": { "type": "string", "minLength": 1 },
+        "suite": { "type": "string", "minLength": 1 },
+        "snapshot_index_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "replica": {
+      "type": "object",
+      "required": ["snapshot_id", "suite", "snapshot_index_sha256"],
+      "properties": {
+        "snapshot_id": { "type": "string", "minLength": 1 },
+        "suite": { "type": "string", "minLength": 1 },
+        "snapshot_index_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "comparison": {
+      "type": "object",
+      "required": ["overlap_paths", "mismatches", "ok"],
+      "properties": {
+        "overlap_paths": { "type": "integer", "minimum": 0 },
+        "ok": { "type": "boolean" },
+        "mismatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "original_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+              "replica_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+              "original_bytes": { "type": ["integer", "null"], "minimum": 0 },
+              "replica_bytes": { "type": ["integer", "null"], "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "notes": { "type": "string" },
+    "replica_snapshot_index": { "type": "object" }
+  },
+  "additionalProperties": false
+}

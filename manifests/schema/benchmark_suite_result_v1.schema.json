@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/benchmark_suite_result_v1.schema.json",
+  "title": "NextStat Benchmark Suite Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "suite", "deterministic", "meta", "cases", "summary"],
+  "properties": {
+    "schema_version": { "const": "nextstat.benchmark_suite_result.v1" },
+    "suite": { "type": "string", "minLength": 1 },
+    "deterministic": { "type": "boolean" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "platform", "pyhf_version", "nextstat_version"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" },
+        "pyhf_version": { "type": "string" },
+        "nextstat_version": { "type": "string" }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case",
+          "path",
+          "sha256",
+          "parity_ok",
+          "abs_diff",
+          "speedup_pyhf_over_nextstat"
+        ],
+        "properties": {
+          "case": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "parity_ok": { "type": "boolean" },
+          "abs_diff": { "type": "number", "minimum": 0 },
+          "speedup_pyhf_over_nextstat": { "type": "number" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_cases", "n_ok", "worst_abs_diff", "worst_case"],
+      "properties": {
+        "n_cases": { "type": "integer", "minimum": 0 },
+        "n_ok": { "type": "integer", "minimum": 0 },
+        "worst_abs_diff": { "type": "number", "minimum": 0 },
+        "worst_case": { "type": "string" }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,188 @@
+name: Publish Benchmark Snapshot (Template)
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_id:
+        description: "Opaque snapshot id (immutable)"
+        required: true
+        default: "snapshot-YYYY-MM-DD"
+      run_hep:
+        description: "Run HEP suite"
+        required: true
+        type: boolean
+        default: true
+      run_pharma:
+        description: "Run pharma suite"
+        required: true
+        type: boolean
+        default: true
+      run_bayesian:
+        description: "Run Bayesian suite"
+        required: true
+        type: boolean
+        default: true
+      run_ml:
+        description: "Run ML suite"
+        required: true
+        type: boolean
+        default: false
+      ml_install_jax_cpu:
+        description: "Install JAX CPU deps (for ML suite)"
+        required: true
+        type: boolean
+        default: false
+      nextstat_wheel_url:
+        description: "URL to the pinned NextStat wheel (.whl) being measured"
+        required: false
+        default: ""
+      nextstat_wheel_sha256:
+        description: "SHA-256 of the wheel file (hex)"
+        required: false
+        default: ""
+      nextstat_repo:
+        description: "NextStat source repo (owner/name) for building a wheel when URL is empty"
+        required: false
+        default: "nextstat/nextstat.io"
+      nextstat_ref:
+        description: "NextStat git ref (commit SHA or tag) to build from when URL is empty"
+        required: false
+        default: ""
+      nextstat_py_subdir:
+        description: "Path to NextStat Python package (maturin project) inside the source repo"
+        required: false
+        default: "bindings/ns-py"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install harness deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r env/python/requirements.txt
+
+      - name: "Optional: install ML deps (JAX CPU)"
+        if: ${{ inputs.run_ml && inputs.ml_install_jax_cpu }}
+        run: |
+          set -euo pipefail
+          python -m pip install -r env/python/requirements-ml-jax-cpu.txt
+
+      - name: Validate NextStat wheel inputs
+        env:
+          NEXTSTAT_WHEEL_URL: ${{ inputs.nextstat_wheel_url }}
+          NEXTSTAT_WHEEL_SHA256: ${{ inputs.nextstat_wheel_sha256 }}
+          NEXTSTAT_REPO: ${{ inputs.nextstat_repo }}
+          NEXTSTAT_REF: ${{ inputs.nextstat_ref }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NEXTSTAT_WHEEL_URL}" ]; then
+            if [ -z "${NEXTSTAT_WHEEL_SHA256}" ]; then
+              echo "nextstat_wheel_sha256 is required when nextstat_wheel_url is provided." >&2
+              exit 2
+            fi
+            exit 0
+          fi
+          if [ -z "${NEXTSTAT_REF}" ]; then
+            echo "Either provide nextstat_wheel_url+nextstat_wheel_sha256, or provide nextstat_ref to build from source." >&2
+            echo "nextstat_repo=${NEXTSTAT_REPO}" >&2
+            exit 2
+          fi
+
+      - name: Download pinned NextStat wheel
+        if: ${{ inputs.nextstat_wheel_url != '' }}
+        env:
+          NEXTSTAT_WHEEL_URL: ${{ inputs.nextstat_wheel_url }}
+          NEXTSTAT_WHEEL_SHA256: ${{ inputs.nextstat_wheel_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p tmp
+          curl -L "${NEXTSTAT_WHEEL_URL}" -o tmp/nextstat.whl
+          echo "${NEXTSTAT_WHEEL_SHA256}  tmp/nextstat.whl" | sha256sum -c -
+          echo "NEXTSTAT_WHEEL_URL=${NEXTSTAT_WHEEL_URL}" >> "${GITHUB_ENV}"
+
+      - name: Checkout NextStat source (build wheel)
+        if: ${{ inputs.nextstat_wheel_url == '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.nextstat_repo }}
+          ref: ${{ inputs.nextstat_ref }}
+          path: nextstat-src
+
+      - name: Build NextStat wheel (from source)
+        if: ${{ inputs.nextstat_wheel_url == '' }}
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: nextstat-src/${{ inputs.nextstat_py_subdir }}
+          command: build
+          args: --release --out dist
+
+      - name: Select built wheel
+        if: ${{ inputs.nextstat_wheel_url == '' }}
+        env:
+          NEXTSTAT_REPO: ${{ inputs.nextstat_repo }}
+          NEXTSTAT_REF: ${{ inputs.nextstat_ref }}
+          NEXTSTAT_PY_SUBDIR: ${{ inputs.nextstat_py_subdir }}
+        run: |
+          set -euo pipefail
+          mkdir -p tmp
+          TAG="$(python - <<'PY'\nimport sys\nprint(f\"cp{sys.version_info[0]}{sys.version_info[1]}\")\nPY\n)"
+          WHEEL="$(find "nextstat-src/${NEXTSTAT_PY_SUBDIR}/dist" -name "*${TAG}*.whl" | head -n 1)"
+          if [ -z "${WHEEL}" ]; then
+            echo "No built wheel matching ${TAG} found under nextstat-src/${NEXTSTAT_PY_SUBDIR}/dist" >&2
+            exit 2
+          fi
+          cp "${WHEEL}" tmp/nextstat.whl
+          SHA="$(sha256sum tmp/nextstat.whl | awk '{print $1}')"
+          echo "Built wheel sha256: ${SHA}"
+          echo "NEXTSTAT_SOURCE_REPO=${NEXTSTAT_REPO}" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_SOURCE_REF=${NEXTSTAT_REF}" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_SOURCE_SHA=$(cd nextstat-src && git rev-parse HEAD)" >> "${GITHUB_ENV}"
+
+      - name: Install NextStat wheel
+        run: |
+          set -euo pipefail
+          python -m pip install tmp/nextstat.whl
+
+      - name: Run suite(s)
+        env:
+          RUN_HEP: ${{ inputs.run_hep }}
+          RUN_PHARMA: ${{ inputs.run_pharma }}
+          RUN_BAYESIAN: ${{ inputs.run_bayesian }}
+          RUN_ML: ${{ inputs.run_ml }}
+        run: |
+          set -euo pipefail
+          args=(
+            python scripts/publish_snapshot.py
+            --snapshot-id "${{ inputs.snapshot_id }}"
+            --deterministic
+            --suite "public-benchmarks"
+            --nextstat-wheel tmp/nextstat.whl
+            --fit --fit-repeat 3
+          )
+          if [ "${RUN_HEP}" = "true" ]; then
+            args+=(--hep)
+          fi
+          if [ "${RUN_PHARMA}" = "true" ]; then
+            args+=(--pharma)
+          fi
+          if [ "${RUN_BAYESIAN}" = "true" ]; then
+            args+=(--bayesian)
+          fi
+          if [ "${RUN_ML}" = "true" ]; then
+            args+=(--ml)
+          fi
+          "${args[@]}"
+
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-${{ inputs.snapshot_id }}
+          path: manifests/snapshots/${{ inputs.snapshot_id }}/

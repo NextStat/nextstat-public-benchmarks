@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/snapshot_index_v1.schema.json",
+  "title": "NextStat Snapshot Index v1",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "snapshot_id", "suite", "git", "workflow", "artifacts"],
+  "properties": {
+    "schema_version": { "const": "nextstat.snapshot_index.v1" },
+    "generated_at": { "type": "string" },
+    "snapshot_id": { "type": "string", "minLength": 1 },
+    "suite": { "type": "string", "minLength": 1 },
+    "git": {
+      "type": "object",
+      "required": ["sha", "ref", "repository"],
+      "properties": {
+        "sha": { "type": "string" },
+        "ref": { "type": "string" },
+        "repository": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "bytes", "sha256"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

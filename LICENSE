@@ -1,0 +1,9 @@
+This seed directory is intended to be copied into a standalone public benchmarks repository.
+
+For licensing of NextStat and its benchmark harness code, see the top-level licenses in the `nextstat.io` repository:
+
+- `LICENSE` (AGPL-3.0-or-later)
+- `LICENSE-COMMERCIAL` (commercial terms)
+
+When creating the standalone benchmarks repo, copy the applicable license texts into its root.
+

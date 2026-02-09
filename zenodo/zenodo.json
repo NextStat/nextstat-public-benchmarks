@@ -1,0 +1,20 @@
+{
+  "title": "NextStat Public Benchmarks: Snapshot (Template)",
+  "upload_type": "software",
+  "description": "Immutable benchmark snapshot for NextStat public benchmarks. Includes baseline_manifest.json, snapshot_index.json (hash inventory), nextstat_wheel.whl (recommended), raw suite outputs, and a README snippet.",
+  "creators": [
+    {
+      "name": "NextStat Contributors"
+    }
+  ],
+  "license": "AGPL-3.0-or-later",
+  "keywords": [
+    "benchmarks",
+    "reproducibility",
+    "statistics",
+    "pharmacometrics",
+    "histfactory",
+    "pyhf"
+  ],
+  "notes": "Fill in snapshot id, harness commit SHA, and NextStat version in the description before publishing."
+}

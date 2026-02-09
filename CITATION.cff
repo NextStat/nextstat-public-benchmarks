@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use the NextStat public benchmarks harness or snapshot artifacts in scientific work, please cite it."
+title: "NextStat Public Benchmarks"
+type: software
+license: AGPL-3.0-or-later
+repository-code: "https://github.com/nextstat/nextstat-public-benchmarks"
+
+# Keep this file in sync with releases/tags of the standalone benchmarks repo.
+# For immutable benchmark snapshots, prefer citing the Zenodo DOI for the specific snapshot.
+
+authors:
+  - name: "NextStat Contributors"
+
+keywords:
+  - benchmarks
+  - reproducibility
+  - statistics
+  - histfactory
+  - pyhf
+  - bayesian
+
+preferred-citation:
+  type: software
+  title: "NextStat Public Benchmarks"
+  authors:
+    - name: "NextStat Contributors"
+  doi: "10.5281/zenodo.18542624"
+  version: "v0.1.0"
+  date-released: "2026-02-09"
+  url: "https://zenodo.org/records/18542624"
+

@@ -1,0 +1,13 @@
+# Optional pinned deps for the ML suite (CPU JAX).
+#
+# NOTE:
+# - These pins must match a Python version that has JAX wheels available.
+# - If your Python version differs (e.g. newer CPython), update pins accordingly.
+# - Recommended default for CI: Python 3.12.
+#
+# Install:
+#   pip install -r env/python/requirements.txt
+#   pip install -r env/python/requirements-ml-jax-cpu.txt
+
+jax==0.4.38
+jaxlib==0.4.38

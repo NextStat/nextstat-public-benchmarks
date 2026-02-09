@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/ml_benchmark_result_v1.schema.json",
+  "title": "NextStat ML Benchmark Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite",
+    "case",
+    "deterministic",
+    "status",
+    "meta",
+    "dataset",
+    "config",
+    "timing"
+  ],
+  "properties": {
+    "schema_version": { "const": "nextstat.ml_benchmark_result.v1" },
+    "suite": { "const": "ml" },
+    "case": { "type": "string", "minLength": 1 },
+    "deterministic": { "type": "boolean" },
+    "status": { "type": "string", "enum": ["ok", "warn", "failed"] },
+    "reason": { "type": ["string", "null"] },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "platform", "numpy_version", "jax_version"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" },
+        "numpy_version": { "type": "string" },
+        "jax_version": { "type": "string" }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "workload", "n", "dtype", "cold_runs", "warm_iters", "cache_policy"],
+      "properties": {
+        "backend": { "type": "string", "minLength": 1 },
+        "workload": { "type": "string", "minLength": 1 },
+        "n": { "type": "integer", "minimum": 1 },
+        "dtype": { "type": "string", "enum": ["float32", "float64"] },
+        "cold_runs": { "type": "integer", "minimum": 0 },
+        "warm_iters": { "type": "integer", "minimum": 0 },
+        "cache_policy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "device": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["platform", "kind", "count"],
+      "properties": {
+        "platform": { "type": "string" },
+        "kind": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cold", "warm"],
+      "properties": {
+        "cold": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runs"],
+          "properties": {
+            "n_runs": { "type": "integer", "minimum": 0 },
+            "import_s": { "$ref": "#/$defs/summary_s" },
+            "first_call_s": { "$ref": "#/$defs/summary_s" },
+            "ttfr_s": { "$ref": "#/$defs/summary_s" },
+            "total_s": { "$ref": "#/$defs/summary_s" },
+            "runs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["import_s", "first_call_s", "second_call_s", "total_s", "status", "reason"],
+                "properties": {
+                  "import_s": { "type": "number", "minimum": 0 },
+                  "first_call_s": { "type": "number", "minimum": 0 },
+                  "second_call_s": { "type": "number", "minimum": 0 },
+                  "total_s": { "type": "number", "minimum": 0 },
+                  "status": { "type": "string" },
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "warm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["calls_s"],
+          "properties": {
+            "n_iters": { "type": "integer", "minimum": 0 },
+            "call_s": { "$ref": "#/$defs/summary_s" },
+            "calls_s": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+            "status": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "summary_s": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "median", "p95"],
+      "properties": {
+        "min": { "type": "number", "minimum": 0 },
+        "median": { "type": "number", "minimum": 0 },
+        "p95": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

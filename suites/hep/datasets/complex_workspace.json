@@ -1,0 +1,106 @@
+{
+  "channels": [
+    {
+      "name": "SR",
+      "samples": [
+        {
+          "name": "signal",
+          "data": [12.0, 11.0],
+          "modifiers": [
+            {
+              "name": "mu",
+              "type": "normfactor",
+              "data": null
+            },
+            {
+              "name": "lumi",
+              "type": "lumi",
+              "data": null
+            },
+            {
+              "name": "ttbar_norm",
+              "type": "normsys",
+              "data": {
+                "hi": 1.05,
+                "lo": 0.95
+              }
+            }
+          ]
+        },
+        {
+          "name": "background",
+          "data": [100.0, 105.0],
+          "modifiers": [
+            {
+              "name": "lumi",
+              "type": "lumi",
+              "data": null
+            },
+            {
+              "name": "bkg_shape",
+              "type": "histosys",
+              "data": {
+                "hi_data": [110.0, 115.0],
+                "lo_data": [90.0, 95.0]
+              }
+            },
+            {
+              "name": "staterror_SR",
+              "type": "staterror",
+              "data": [10.0, 11.0]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CR",
+      "samples": [
+        {
+          "name": "background",
+          "data": [500.0, 510.0],
+          "modifiers": [
+            {
+              "name": "lumi",
+              "type": "lumi",
+              "data": null
+            },
+            {
+              "name": "shapefactor_CR",
+              "type": "shapefactor",
+              "data": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "name": "SR",
+      "data": [110.0, 115.0]
+    },
+    {
+      "name": "CR",
+      "data": [505.0, 512.0]
+    }
+  ],
+  "measurements": [
+    {
+      "name": "measurement",
+      "config": {
+        "poi": "mu",
+        "parameters": [
+          {
+            "name": "lumi",
+            "inits": [1.0],
+            "bounds": [[0.9, 1.1]],
+            "auxdata": [1.0],
+            "sigmas": [0.02]
+          }
+        ]
+      }
+    }
+  ],
+  "version": "1.0.0"
+}

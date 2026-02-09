@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/hep_root_baseline_result_v1.schema.json",
+  "title": "NextStat HEP ROOT Baseline Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "baseline", "suite", "case", "status", "meta"],
+  "properties": {
+    "schema_version": { "const": "nextstat.hep_root_baseline_result.v1" },
+    "baseline": { "const": "root" },
+    "suite": { "const": "hep" },
+    "case": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["ok", "skipped", "failed"] },
+    "reason": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["python", "platform"],
+      "properties": {
+        "python": { "type": "string" },
+        "platform": { "type": "string" },
+        "root_version": { "type": "string" }
+      }
+    }
+  }
+}
+

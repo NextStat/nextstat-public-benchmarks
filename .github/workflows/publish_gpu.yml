@@ -1,0 +1,189 @@
+name: Publish Benchmark Snapshot (GPU Template)
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_id:
+        description: "Opaque snapshot id (immutable)"
+        required: true
+        default: "snapshot-YYYY-MM-DD"
+      # IMPORTANT: This workflow is intended for a self-hosted GPU runner.
+      # Provide a runner label set that matches your infra (defaults assume common tags).
+      runner_labels_json:
+        description: "JSON array of runner labels for runs-on (e.g. [\"self-hosted\",\"linux\",\"x64\",\"gpu\"])"
+        required: true
+        default: "[\"self-hosted\",\"linux\",\"x64\",\"gpu\"]"
+
+      run_hep:
+        description: "Run HEP suite"
+        required: true
+        type: boolean
+        default: false
+      run_pharma:
+        description: "Run pharma suite"
+        required: true
+        type: boolean
+        default: false
+      run_bayesian:
+        description: "Run Bayesian suite"
+        required: true
+        type: boolean
+        default: false
+      run_ml:
+        description: "Run ML suite"
+        required: true
+        type: boolean
+        default: true
+
+      nextstat_wheel_url:
+        description: "URL to the pinned NextStat wheel (.whl) being measured"
+        required: false
+        default: ""
+      nextstat_wheel_path:
+        description: "Local path to the pinned NextStat wheel on the runner (alternative to URL)"
+        required: false
+        default: ""
+      nextstat_wheel_sha256:
+        description: "SHA-256 of the wheel file (hex)"
+        required: false
+        default: ""
+
+      # JAX/CUDA is intentionally optional: GPU runners may differ in driver/runtime.
+      ml_install_jax_cuda:
+        description: "Install JAX CUDA deps (for ML suite GPU cases)"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    name: publish-gpu
+    runs-on: ${{ fromJSON(inputs.runner_labels_json) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          # JAX wheels may lag the newest CPython; 3.12 is a safer default for GPU runners.
+          python-version: "3.12"
+
+      - name: Install harness deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r env/python/requirements.txt
+
+      - name: Ensure CUDA toolkit in PATH (ptxas)
+        run: |
+          set -euo pipefail
+          if [ -x /usr/local/cuda/bin/ptxas ]; then
+            echo "/usr/local/cuda/bin" >> "${GITHUB_PATH}"
+            /usr/local/cuda/bin/ptxas --version | head -n 3 || true
+          else
+            echo "NOTE: /usr/local/cuda/bin/ptxas not found; JAX GPU compilation may fail." >&2
+          fi
+
+      - name: "Optional: install ML deps (JAX CUDA)"
+        if: ${{ inputs.run_ml && inputs.ml_install_jax_cuda }}
+        run: |
+          set -euo pipefail
+          python -m pip install -r env/python/requirements-ml-jax-cuda12.txt
+
+      - name: Get pinned NextStat wheel (URL or local path)
+        env:
+          NEXTSTAT_WHEEL_URL: ${{ inputs.nextstat_wheel_url }}
+          NEXTSTAT_WHEEL_PATH: ${{ inputs.nextstat_wheel_path }}
+          NEXTSTAT_WHEEL_SHA256: ${{ inputs.nextstat_wheel_sha256 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEXTSTAT_WHEEL_SHA256}" ]; then
+            echo "Missing required input: nextstat_wheel_sha256" >&2
+            exit 2
+          fi
+          mkdir -p tmp
+          if [ -n "${NEXTSTAT_WHEEL_PATH}" ]; then
+            if [ ! -f "${NEXTSTAT_WHEEL_PATH}" ]; then
+              echo "Wheel file not found: ${NEXTSTAT_WHEEL_PATH}" >&2
+              exit 2
+            fi
+            WHEEL_NAME="$(basename "${NEXTSTAT_WHEEL_PATH}")"
+            cp -f "${NEXTSTAT_WHEEL_PATH}" "tmp/${WHEEL_NAME}"
+            echo "NEXTSTAT_WHEEL_URL=file://${NEXTSTAT_WHEEL_PATH}" >> "${GITHUB_ENV}"
+          elif [ -n "${NEXTSTAT_WHEEL_URL}" ]; then
+            WHEEL_NAME="${NEXTSTAT_WHEEL_URL##*/}"
+            WHEEL_NAME="${WHEEL_NAME%%\?*}"
+            if [ -z "${WHEEL_NAME}" ] || [ "${WHEEL_NAME}" = "${NEXTSTAT_WHEEL_URL}" ]; then
+              echo "Could not infer wheel filename from URL: ${NEXTSTAT_WHEEL_URL}" >&2
+              exit 2
+            fi
+            curl -L "${NEXTSTAT_WHEEL_URL}" -o "tmp/${WHEEL_NAME}"
+            echo "NEXTSTAT_WHEEL_URL=${NEXTSTAT_WHEEL_URL}" >> "${GITHUB_ENV}"
+          else
+            echo "Provide either nextstat_wheel_path or nextstat_wheel_url." >&2
+            exit 2
+          fi
+          echo "${NEXTSTAT_WHEEL_SHA256}  tmp/${WHEEL_NAME}" | sha256sum -c -
+          echo "NEXTSTAT_WHEEL_NAME=${WHEEL_NAME}" >> "${GITHUB_ENV}"
+
+      - name: Install NextStat wheel
+        run: |
+          set -euo pipefail
+          python -m pip install "tmp/${NEXTSTAT_WHEEL_NAME}"
+
+      - name: "GPU info (best-effort)"
+        run: |
+          set -euo pipefail
+          if command -v nvidia-smi >/dev/null 2>&1; then
+            nvidia-smi || true
+            nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader || true
+          else
+            echo "NOTE: nvidia-smi not found on runner."
+          fi
+
+      - name: Run suite(s)
+        env:
+          RUN_HEP: ${{ inputs.run_hep }}
+          RUN_PHARMA: ${{ inputs.run_pharma }}
+          RUN_BAYESIAN: ${{ inputs.run_bayesian }}
+          RUN_ML: ${{ inputs.run_ml }}
+        run: |
+          set -euo pipefail
+          args=(
+            python scripts/publish_snapshot.py
+            --snapshot-id "${{ inputs.snapshot_id }}"
+            --deterministic
+            --suite "public-benchmarks-gpu"
+            --nextstat-wheel "tmp/${NEXTSTAT_WHEEL_NAME}"
+          )
+          if [ "${RUN_HEP}" = "true" ]; then
+            args+=(--hep)
+          fi
+          if [ "${RUN_PHARMA}" = "true" ]; then
+            args+=(--pharma)
+          fi
+          if [ "${RUN_BAYESIAN}" = "true" ]; then
+            args+=(--bayesian)
+          fi
+          if [ "${RUN_ML}" = "true" ]; then
+            args+=(--ml)
+          fi
+          "${args[@]}"
+
+      - name: Package snapshot (DOI-ready archive)
+        run: |
+          set -euo pipefail
+          python zenodo/package_snapshot.py \
+            --snapshot-dir "manifests/snapshots/${{ inputs.snapshot_id }}" \
+            --out-dir tmp/zenodo_out
+
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-${{ inputs.snapshot_id }}
+          path: manifests/snapshots/${{ inputs.snapshot_id }}/
+
+      - name: Upload DOI package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: doi-package-${{ inputs.snapshot_id }}
+          path: tmp/zenodo_out/
