@@ -29,6 +29,10 @@ on:
         required: true
         type: boolean
         default: false
+      bayesian_backends:
+        description: "Bayesian backends (comma-separated): nextstat,cmdstanpy,pymc"
+        required: true
+        default: "nextstat"
       run_ml:
         description: "Run ML suite"
         required: true
@@ -72,6 +76,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r env/python/requirements.txt
+
+      - name: "Optional: install Bayesian backend deps (cmdstanpy/pymc)"
+        if: ${{ inputs.run_bayesian }}
+        env:
+          BAYESIAN_BACKENDS: ${{ inputs.bayesian_backends }}
+        run: |
+          set -euo pipefail
+          b="${BAYESIAN_BACKENDS}"
+          if echo "${b}" | grep -qE '(^|,)cmdstanpy(,|$)'; then
+            python -m pip install -r env/python/requirements-bayesian-cmdstanpy.txt || true
+          fi
+          if echo "${b}" | grep -qE '(^|,)pymc(,|$)'; then
+            python -m pip install -r env/python/requirements-bayesian-pymc.txt || true
+          fi
 
       - name: Ensure CUDA toolkit in PATH (ptxas)
         run: |
@@ -146,6 +164,7 @@ jobs:
           RUN_PHARMA: ${{ inputs.run_pharma }}
           RUN_BAYESIAN: ${{ inputs.run_bayesian }}
           RUN_ML: ${{ inputs.run_ml }}
+          BAYESIAN_BACKENDS: ${{ inputs.bayesian_backends }}
         run: |
           set -euo pipefail
           args=(
@@ -162,7 +181,7 @@ jobs:
             args+=(--pharma)
           fi
           if [ "${RUN_BAYESIAN}" = "true" ]; then
-            args+=(--bayesian)
+            args+=(--bayesian --bayesian-backends "${BAYESIAN_BACKENDS}")
           fi
           if [ "${RUN_ML}" = "true" ]; then
             args+=(--ml)

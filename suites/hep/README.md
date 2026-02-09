@@ -20,6 +20,12 @@ Also benchmark full fits (more expensive):
 python run.py --deterministic --fit --fit-repeat 3 --out ../../out/hep_simple_nll_fit.json
 ```
 
+Compute profiled `q0`/`Z0` (conditional fit at `mu=0`):
+
+```bash
+python run.py --deterministic --profile --out ../../out/hep_simple_profile.json
+```
+
 Suite runner (multiple cases + synthetic scaling):
 
 ```bash
@@ -30,4 +36,10 @@ With fits:
 
 ```bash
 python suite.py --deterministic --fit --fit-repeat 3 --out-dir ../../out/hep_fit
+```
+
+With the optional ROOT/RooFit reference-path baseline (may be skipped if PyROOT isn't available):
+
+```bash
+python suite.py --deterministic --root-baseline --out-dir ../../out/hep_root
 ```

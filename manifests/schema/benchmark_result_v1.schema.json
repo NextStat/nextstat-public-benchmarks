@@ -158,6 +158,97 @@
           "then": { "required": ["time_s", "speedup_pyhf_over_nextstat", "raw"] }
         }
       ]
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ok", "skipped", "failed"] },
+        "reason": { "type": "string" },
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "q0_pyhf": { "type": "number", "minimum": 0 },
+            "z0_pyhf": { "type": "number", "minimum": 0 },
+            "nll_free_pyhf": { "type": "number" },
+            "nll_mu0_pyhf": { "type": "number" }
+          }
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "poi_name": { "type": "string" },
+            "poi0": { "type": "number" }
+          }
+        },
+        "nll": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["free", "mu0"],
+          "properties": {
+            "free": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pyhf", "nextstat"],
+              "properties": {
+                "pyhf": { "type": "number" },
+                "nextstat": { "type": "number" }
+              }
+            },
+            "mu0": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pyhf", "nextstat"],
+              "properties": {
+                "pyhf": { "type": "number" },
+                "nextstat": { "type": "number" }
+              }
+            }
+          }
+        },
+        "q0": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pyhf", "nextstat"],
+          "properties": {
+            "pyhf": { "type": "number", "minimum": 0 },
+            "nextstat": { "type": "number", "minimum": 0 }
+          }
+        },
+        "z0": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pyhf", "nextstat"],
+          "properties": {
+            "pyhf": { "type": "number", "minimum": 0 },
+            "nextstat": { "type": "number", "minimum": 0 }
+          }
+        },
+        "parity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["abs_diff_q0", "rel_diff_q0", "abs_diff_z0", "rel_diff_z0"],
+          "properties": {
+            "abs_diff_q0": { "type": "number", "minimum": 0 },
+            "rel_diff_q0": { "type": "number", "minimum": 0 },
+            "abs_diff_z0": { "type": "number", "minimum": 0 },
+            "rel_diff_z0": { "type": "number", "minimum": 0 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "ok" } }, "required": ["status"] },
+          "then": { "required": ["meta", "nll", "q0", "z0", "parity"] }
+        },
+        {
+          "if": { "properties": { "status": { "enum": ["skipped", "failed"] } }, "required": ["status"] },
+          "then": { "required": ["reason"] }
+        }
+      ]
     }
   }
 }

@@ -469,6 +469,26 @@ def main() -> int:
 
         backend_meta: dict[str, Any] = {"cmdstanpy_version": str(getattr(cmdstanpy, "__version__", "unknown"))}
 
+        # CmdStan binaries are a separate dependency from the Python package.
+        # Treat missing CmdStan as a "warn" (skipped backend), not a hard failure.
+        try:
+            from pathlib import Path as _Path
+
+            cs_path = str(getattr(cmdstanpy, "cmdstan_path")())
+            if not cs_path or not _Path(cs_path).exists():
+                raise RuntimeError("CmdStan not installed (cmdstan_path is missing)")
+        except Exception as e:
+            return _emit_missing_backend(
+                out_path=out_path,
+                args=args,
+                nextstat_version=nextstat_version,
+                dataset=dataset,
+                model_type=model_type,
+                cfg=cfg,
+                backend_name="cmdstan",
+                err=e,
+            )
+
         cache_dir = out_path.parent / "_cmdstan_cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
         stan_dir = cache_dir / "stan"

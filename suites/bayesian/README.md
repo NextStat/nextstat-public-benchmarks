@@ -37,3 +37,14 @@ Run with optional backends:
 ```bash
 python3 suites/bayesian/suite.py --deterministic --out-dir out/bayesian --backends nextstat,cmdstanpy,pymc
 ```
+
+Optional backend deps (install inside your venv):
+
+```bash
+python -m pip install -r env/python/requirements-bayesian-cmdstanpy.txt
+python -m pip install -r env/python/requirements-bayesian-pymc.txt
+```
+
+Notes:
+- `cmdstanpy` also requires **CmdStan** to be installed/configured (the runner emits `warn` if missing).
+- CI/workflows can pass `bayesian_backends` to include these backends in snapshots.

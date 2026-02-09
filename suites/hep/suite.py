@@ -70,6 +70,7 @@ def run_case(
     workspace_obj: dict | None = None,
     fit: bool = False,
     fit_repeat: int = 3,
+    profile: bool = False,
 ) -> int:
     run_py = Path(__file__).resolve().parent / "run.py"
 
@@ -103,6 +104,55 @@ def run_case(
     if fit:
         args.append("--fit")
         args.extend(["--fit-repeat", str(int(fit_repeat))])
+    if profile:
+        args.append("--profile")
+
+    try:
+        p = subprocess.run(args)
+        return int(p.returncode)
+    finally:
+        if tmp_ws is not None:
+            try:
+                tmp_ws.unlink()
+            except OSError:
+                pass
+
+
+def run_root_baseline(
+    case_id: str,
+    *,
+    workspace_path: Path,
+    measurement_name: str,
+    out_path: Path,
+    dataset_id: str,
+    dataset_sha256: str | None,
+    workspace_obj: dict | None = None,
+) -> int:
+    run_py = Path(__file__).resolve().parent / "baselines" / "root" / "run.py"
+
+    tmp_ws: Path | None = None
+    ws_arg_path = workspace_path
+    if workspace_obj is not None:
+        tmp_ws = out_path.with_suffix(".workspace.json")
+        tmp_ws.write_text(json.dumps(workspace_obj, indent=2, sort_keys=True) + "\n")
+        ws_arg_path = tmp_ws
+
+    args = [
+        sys.executable,
+        str(run_py),
+        "--case",
+        case_id,
+        "--workspace",
+        str(ws_arg_path),
+        "--measurement-name",
+        measurement_name,
+        "--dataset-id",
+        dataset_id,
+        "--out",
+        str(out_path),
+    ]
+    if dataset_sha256:
+        args.extend(["--dataset-sha256", dataset_sha256])
 
     try:
         p = subprocess.run(args)
@@ -131,6 +181,16 @@ def main() -> int:
     )
     ap.add_argument("--fit", action="store_true", help="Also benchmark full MLE fits.")
     ap.add_argument("--fit-repeat", type=int, default=3, help="Fit timing repeats (wall-clock).")
+    ap.add_argument(
+        "--profile",
+        action="store_true",
+        help="Also compute profiled q0/Z0 (implies extra conditional fits).",
+    )
+    ap.add_argument(
+        "--root-baseline",
+        action="store_true",
+        help="Also run the optional ROOT/RooFit reference-path baseline (may be skipped if PyROOT is unavailable).",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir).resolve()
@@ -140,6 +200,8 @@ def main() -> int:
     deterministic = bool(args.deterministic)
     fit = bool(args.fit)
     fit_repeat = int(args.fit_repeat)
+    profile = bool(args.profile) or fit
+    root_baseline = bool(args.root_baseline)
 
     case_groups = [x.strip() for x in args.cases.split(",") if x.strip()]
     sizes = [int(x.strip()) for x in args.sizes.split(",") if x.strip()]
@@ -187,6 +249,7 @@ def main() -> int:
             )
 
     index_cases = []
+    baselines: list[dict] = []
     n_ok = 0
     worst_abs = 0.0
     worst_case = "none"
@@ -205,6 +268,7 @@ def main() -> int:
             dataset_sha256=c["dataset_sha256"],
             fit=fit,
             fit_repeat=fit_repeat,
+            profile=profile,
         )
         if rc != 0:
             # Still include it in the index if it exists, but fail overall.
@@ -230,6 +294,36 @@ def main() -> int:
             }
         )
 
+        if root_baseline:
+            baseline_dir = out_dir / "baselines" / "root"
+            baseline_dir.mkdir(parents=True, exist_ok=True)
+            bout = baseline_dir / f"{case_id}.json"
+            _ = run_root_baseline(
+                case_id,
+                workspace_path=c["workspace_path"],
+                workspace_obj=c["workspace_obj"],
+                measurement_name=c["measurement"],
+                out_path=bout,
+                dataset_id=c["dataset_id"],
+                dataset_sha256=c["dataset_sha256"],
+            )
+            try:
+                bobj = json.loads(bout.read_text())
+                bsha = sha256_file(bout)
+                baselines.append(
+                    {
+                        "baseline": "root",
+                        "case": case_id,
+                        "path": os.path.relpath(bout, out_dir),
+                        "sha256": bsha,
+                        "status": str(bobj.get("status", "")),
+                        **({} if not bobj.get("reason") else {"reason": str(bobj.get("reason"))}),
+                    }
+                )
+            except Exception:
+                # Baseline is best-effort; skip indexing if it failed to write valid JSON.
+                pass
+
     meta = {
         "python": sys.version.split()[0],
         "platform": platform.platform(),
@@ -243,6 +337,7 @@ def main() -> int:
         "deterministic": deterministic,
         "meta": meta,
         "cases": index_cases,
+        **({} if not baselines else {"baselines": baselines}),
         "summary": {
             "n_cases": len(index_cases),
             "n_ok": n_ok,

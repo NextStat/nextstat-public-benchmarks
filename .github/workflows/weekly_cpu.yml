@@ -1,0 +1,134 @@
+name: Weekly Snapshot (CPU)
+
+on:
+  schedule:
+    # Mondays 04:00 UTC
+    - cron: "0 4 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  weekly-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install harness deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r env/python/requirements.txt
+
+      - name: Install ML deps (JAX CPU)
+        run: |
+          set -euo pipefail
+          python -m pip install -r env/python/requirements-ml-jax-cpu.txt || true
+
+      - name: Compute snapshot id
+        run: |
+          set -euo pipefail
+          d="$(date -u +%Y-%m-%d)"
+          echo "SNAPSHOT_ID=snapshot-weekly-cpu-${d}-run${GITHUB_RUN_ID}" >> "${GITHUB_ENV}"
+
+      - name: Validate NextStat source settings
+        env:
+          NEXTSTAT_REPO: ${{ vars.NEXTSTAT_WEEKLY_SOURCE_REPO || 'NextStat/nextstat.io' }}
+          NEXTSTAT_REF: ${{ vars.NEXTSTAT_WEEKLY_SOURCE_REF || 'main' }}
+        run: |
+          set -euo pipefail
+          echo "NEXTSTAT_REPO=${NEXTSTAT_REPO}" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_REF=${NEXTSTAT_REF}" >> "${GITHUB_ENV}"
+
+      - name: Checkout NextStat source (build wheel)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.NEXTSTAT_REPO }}
+          ref: ${{ env.NEXTSTAT_REF }}
+          path: nextstat-src
+
+      - name: Build NextStat wheel (from source)
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: nextstat-src/bindings/ns-py
+          command: build
+          args: --release --out dist
+
+      - name: Select built wheel
+        run: |
+          set -euo pipefail
+          mkdir -p tmp
+          TAG="$(python3 -c 'import sys; print(f"cp{sys.version_info[0]}{sys.version_info[1]}")')"
+          WHEEL="$(find nextstat-src/bindings/ns-py/dist -name "*${TAG}*.whl" | head -n 1)"
+          if [ -z "${WHEEL}" ]; then
+            echo "No built wheel matching ${TAG} found." >&2
+            exit 2
+          fi
+          WHEEL_NAME="$(basename "${WHEEL}")"
+          cp "${WHEEL}" "tmp/${WHEEL_NAME}"
+          SHA="$(sha256sum "tmp/${WHEEL_NAME}" | awk '{print $1}')"
+          echo "Built wheel sha256: ${SHA}"
+          echo "NEXTSTAT_SOURCE_REPO=${NEXTSTAT_REPO}" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_SOURCE_REF=${NEXTSTAT_REF}" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_SOURCE_SHA=$(cd nextstat-src && git rev-parse HEAD)" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_WHEEL_NAME=${WHEEL_NAME}" >> "${GITHUB_ENV}"
+
+      - name: Install NextStat wheel
+        run: |
+          set -euo pipefail
+          python -m pip install "tmp/${NEXTSTAT_WHEEL_NAME}"
+
+      - name: Run snapshot (all suites, CPU)
+        run: |
+          set -euo pipefail
+          python scripts/publish_snapshot.py \
+            --snapshot-id "${SNAPSHOT_ID}" \
+            --deterministic \
+            --suite "weekly-cpu" \
+            --nextstat-wheel "tmp/${NEXTSTAT_WHEEL_NAME}" \
+            --fit --fit-repeat 3 \
+            --hep --pharma --bayesian --ml \
+            --ml-backends numpy,jax_jit_cpu
+
+      - name: Update snapshot registry (commit-backed)
+        run: |
+          set -euo pipefail
+          python scripts/update_snapshot_registry.py \
+            --snapshot-dir "manifests/snapshots/${SNAPSHOT_ID}" \
+            --registry "manifests/registry/snapshot_registry.json"
+
+          git status --porcelain
+          git add manifests/registry/snapshot_registry.json
+          if git diff --cached --quiet; then
+            echo "No registry changes to commit."
+            exit 0
+          fi
+          git config user.name "nextstat-bench-bot"
+          git config user.email "benchmarks-bot@users.noreply.github.com"
+          git commit -m "registry: add ${SNAPSHOT_ID}"
+          git push
+
+      - name: Package snapshot (DOI-ready archive)
+        run: |
+          set -euo pipefail
+          python zenodo/package_snapshot.py \
+            --snapshot-dir "manifests/snapshots/${SNAPSHOT_ID}" \
+            --out-dir tmp/zenodo_out
+
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-${{ env.SNAPSHOT_ID }}
+          path: manifests/snapshots/${{ env.SNAPSHOT_ID }}/
+
+      - name: Upload DOI package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: doi-package-${{ env.SNAPSHOT_ID }}
+          path: tmp/zenodo_out/
+

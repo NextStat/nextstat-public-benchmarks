@@ -4,7 +4,7 @@
   "title": "NextStat HEP ROOT Baseline Result v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "baseline", "suite", "case", "status", "meta"],
+  "required": ["schema_version", "baseline", "suite", "case", "status", "reason", "meta"],
   "properties": {
     "schema_version": { "const": "nextstat.hep_root_baseline_result.v1" },
     "baseline": { "const": "root" },
@@ -12,6 +12,16 @@
     "case": { "type": "string", "minLength": 1 },
     "status": { "type": "string", "enum": ["ok", "skipped", "failed"] },
     "reason": { "type": "string" },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "measurement_name": { "type": "string" }
+      }
+    },
     "meta": {
       "type": "object",
       "additionalProperties": true,
@@ -19,7 +29,8 @@
       "properties": {
         "python": { "type": "string" },
         "platform": { "type": "string" },
-        "root_version": { "type": "string" }
+        "root_version": { "type": "string" },
+        "note": { "type": "string" }
       }
     }
   }

@@ -43,6 +43,22 @@
         }
       }
     },
+    "baselines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["baseline", "case", "path", "sha256", "status"],
+        "properties": {
+          "baseline": { "type": "string", "minLength": 1 },
+          "case": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "status": { "type": "string", "enum": ["ok", "skipped", "failed"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
@@ -56,4 +72,3 @@
     }
   }
 }
-

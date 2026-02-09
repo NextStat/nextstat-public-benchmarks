@@ -37,11 +37,16 @@ validate: install
 		import jsonschema
 		schema_case = json.loads(Path("manifests/schema/benchmark_result_v1.schema.json").read_text())
 		schema_suite = json.loads(Path("manifests/schema/benchmark_suite_result_v1.schema.json").read_text())
+		schema_root = json.loads(Path("manifests/schema/hep_root_baseline_result_v1.schema.json").read_text())
 		suite = json.loads(Path("out/hep/hep_suite.json").read_text())
 		jsonschema.validate(suite, schema_suite)
 		for e in suite["cases"]:
 		    inst = json.loads((Path("out/hep") / e["path"]).read_text())
 		    jsonschema.validate(inst, schema_case)
+		for b in suite.get("baselines", []):
+		    inst = json.loads((Path("out/hep") / b["path"]).read_text())
+		    if inst.get("schema_version") == "nextstat.hep_root_baseline_result.v1":
+		        jsonschema.validate(inst, schema_root)
 		print("benchmark_suite_result_v1: schema ok")
 		schema_pharma_case = json.loads(Path("manifests/schema/pharma_benchmark_result_v1.schema.json").read_text())
 		schema_pharma_suite = json.loads(Path("manifests/schema/pharma_benchmark_suite_result_v1.schema.json").read_text())
@@ -79,6 +84,10 @@ validate: install
 		schema_baseline = json.loads(Path("manifests/schema/baseline_manifest_v1.schema.json").read_text())
 		schema_index = json.loads(Path("manifests/schema/snapshot_index_v1.schema.json").read_text())
 		schema_rep = json.loads(Path("manifests/schema/replication_report_v1.schema.json").read_text())
+		schema_reg = json.loads(Path("manifests/schema/snapshot_registry_v1.schema.json").read_text())
+		reg_path = Path("manifests/registry/snapshot_registry.json")
+		if reg_path.exists():
+		    jsonschema.validate(json.loads(reg_path.read_text()), schema_reg)
 		snap_root = Path("manifests/snapshots")
 		if snap_root.exists():
 		    n = 0

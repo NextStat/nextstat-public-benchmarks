@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextstat.io/schemas/benchmarks/snapshot_registry_v1.schema.json",
+  "title": "NextStat Snapshot Registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "snapshots"],
+  "properties": {
+    "schema_version": { "const": "nextstat.snapshot_registry.v1" },
+    "updated_at": { "type": "string" },
+    "snapshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["snapshot_id", "suite", "generated_at", "artifacts"],
+        "properties": {
+          "snapshot_id": { "type": "string", "minLength": 1 },
+          "suite": { "type": "string", "minLength": 1 },
+          "generated_at": { "type": "string" },
+          "git": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "repository": { "type": "string" },
+              "sha": { "type": "string" },
+              "ref": { "type": "string" }
+            }
+          },
+          "workflow": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "github_run_url": { "type": "string" }
+            }
+          },
+          "artifacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["baseline_manifest_sha256", "snapshot_index_sha256"],
+            "properties": {
+              "baseline_manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "snapshot_index_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

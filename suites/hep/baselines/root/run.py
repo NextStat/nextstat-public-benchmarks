@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""ROOT baseline runner (template).
+"""ROOT baseline runner (reference path).
 
-For now this only validates environment availability (PyROOT import + version).
-Full RooFit/RooStats benchmark wiring is tracked separately.
+This is a "reference path" hook for RooFit/RooStats-based validation.
+
+For now it validates environment availability (PyROOT import + version) and records
+the dataset identity. Full RooFit/RooStats benchmark wiring is tracked separately.
 """
 
 from __future__ import annotations
@@ -17,6 +19,10 @@ from pathlib import Path
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--case", default="root_env_smoke")
+    ap.add_argument("--workspace", default="", help="Optional pyhf workspace JSON path (for provenance).")
+    ap.add_argument("--measurement-name", default="", help="Optional pyhf measurement name (for provenance).")
+    ap.add_argument("--dataset-id", default="", help="Optional stable dataset id.")
+    ap.add_argument("--dataset-sha256", default="", help="Optional dataset sha256.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -32,6 +38,20 @@ def main() -> int:
         "reason": "PyROOT not available",
         "meta": {"python": sys.version.split()[0], "platform": platform.platform()},
     }
+    ws = str(args.workspace).strip()
+    meas = str(args.measurement_name).strip()
+    ds_id = str(args.dataset_id).strip()
+    ds_sha = str(args.dataset_sha256).strip()
+    if ws or meas or ds_id or ds_sha:
+        doc["dataset"] = {}
+        if ws:
+            doc["dataset"]["path"] = ws
+        if meas:
+            doc["dataset"]["measurement_name"] = meas
+        if ds_id:
+            doc["dataset"]["id"] = ds_id
+        if ds_sha:
+            doc["dataset"]["sha256"] = ds_sha
 
     try:
         import ROOT  # type: ignore
@@ -45,6 +65,7 @@ def main() -> int:
         doc["reason"] = ""
         if v:
             doc["meta"]["root_version"] = v
+        doc["meta"]["note"] = "RooFit/RooStats evaluation not yet implemented in this baseline runner"
     except Exception as e:
         doc["status"] = "skipped"
         doc["reason"] = f"{type(e).__name__}: {e}"
@@ -55,4 +76,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

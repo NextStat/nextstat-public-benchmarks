@@ -1,0 +1,10 @@
+# Optional deps for the Bayesian suite when running the `pymc` backend.
+#
+# NOTE: These are intentionally kept separate from the core harness requirements,
+# because they significantly increase install time and may lag the newest CPython.
+#
+# For fully pinned, DOI-grade snapshots, prefer freezing exact versions in CI and
+# recording them in the snapshot baseline manifest.
+
+pymc
+arviz

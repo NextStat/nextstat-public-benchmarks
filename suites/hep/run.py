@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import platform
 import sys
 import time
@@ -111,6 +112,11 @@ def main() -> int:
     parser.add_argument("--repeat", type=int, default=5, help="Number of timing repeats.")
     parser.add_argument("--fit", action="store_true", help="Also benchmark full MLE fits.")
     parser.add_argument("--fit-repeat", type=int, default=3, help="Fit timing repeats (wall-clock).")
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Also compute profiled q0/Z0 (requires conditional fit at mu=0).",
+    )
     parser.add_argument("--dataset-id", default="", help="Optional dataset id for reporting (stable, portable).")
     parser.add_argument("--dataset-sha256", default="", help="Optional dataset sha256 override.")
     args = parser.parse_args()
@@ -293,6 +299,85 @@ def main() -> int:
                 }
             except Exception as e:
                 doc["fit"] = {"status": "failed", "reason": f"{type(e).__name__}: {e}"}
+
+    if args.profile:
+        poi_name = getattr(pyhf_model.config, "poi_name", None)
+        poi_index = getattr(pyhf_model.config, "poi_index", None)
+        if poi_index is None:
+            doc["profile"] = {"status": "skipped", "reason": "pyhf model has no POI"}
+        elif not hasattr(pyhf.infer.mle, "fixed_poi_fit"):
+            doc["profile"] = {
+                "status": "skipped",
+                "reason": "pyhf.infer.mle.fixed_poi_fit not available in this pyhf version",
+            }
+        else:
+            try:
+                poi0 = 0.0
+                pyhf_best_free = pyhf.infer.mle.fit(pyhf_data, pyhf_model)
+                pyhf_best_mu0 = pyhf.infer.mle.fixed_poi_fit(poi0, pyhf_data, pyhf_model)
+                pyhf_nll_free = pyhf_nll(pyhf_model, pyhf_data, pyhf_best_free)
+                pyhf_nll_mu0 = pyhf_nll(pyhf_model, pyhf_data, pyhf_best_mu0)
+                pyhf_q0 = max(0.0, 2.0 * (pyhf_nll_mu0 - pyhf_nll_free))
+                pyhf_z0 = math.sqrt(pyhf_q0)
+
+                # NextStat conditional fit requires bounded minimization API.
+                mle = nextstat.MaximumLikelihoodEstimator()
+                if not hasattr(mle, "fit_minimum"):
+                    doc["profile"] = {
+                        "status": "skipped",
+                        "reason": "nextstat.MaximumLikelihoodEstimator.fit_minimum is required for conditional fits",
+                        "reference": {
+                            "q0_pyhf": float(pyhf_q0),
+                            "z0_pyhf": float(pyhf_z0),
+                            "nll_free_pyhf": float(pyhf_nll_free),
+                            "nll_mu0_pyhf": float(pyhf_nll_mu0),
+                        },
+                    }
+                else:
+                    ns_names = list(ns_model.parameter_names())
+                    if poi_name is None or poi_name not in ns_names:
+                        doc["profile"] = {
+                            "status": "failed",
+                            "reason": f"POI name not found in NextStat parameter names: {poi_name!r}",
+                        }
+                    else:
+                        ns_poi_index = ns_names.index(poi_name)
+                        bounds0 = list(ns_model.suggested_bounds())
+                        bounds0[ns_poi_index] = (poi0, poi0)
+
+                        ns_free = mle.fit_minimum(ns_model)
+                        ns_mu0 = mle.fit_minimum(ns_model, init_pars=list(ns_free.bestfit), bounds=bounds0)
+                        ns_nll_free = float(getattr(ns_free, "nll", float("nan")))
+                        ns_nll_mu0 = float(getattr(ns_mu0, "nll", float("nan")))
+                        ns_q0 = max(0.0, 2.0 * (ns_nll_mu0 - ns_nll_free))
+                        ns_z0 = math.sqrt(ns_q0)
+
+                        abs_diff_q0 = abs(ns_q0 - pyhf_q0)
+                        rel_diff_q0 = abs_diff_q0 / max(abs(ns_q0), abs(pyhf_q0), 1.0)
+                        abs_diff_z0 = abs(ns_z0 - pyhf_z0)
+                        rel_diff_z0 = abs_diff_z0 / max(abs(ns_z0), abs(pyhf_z0), 1.0)
+
+                        doc["profile"] = {
+                            "status": "ok",
+                            "meta": {
+                                **({} if poi_name is None else {"poi_name": str(poi_name)}),
+                                "poi0": float(poi0),
+                            },
+                            "nll": {
+                                "free": {"pyhf": float(pyhf_nll_free), "nextstat": float(ns_nll_free)},
+                                "mu0": {"pyhf": float(pyhf_nll_mu0), "nextstat": float(ns_nll_mu0)},
+                            },
+                            "q0": {"pyhf": float(pyhf_q0), "nextstat": float(ns_q0)},
+                            "z0": {"pyhf": float(pyhf_z0), "nextstat": float(ns_z0)},
+                            "parity": {
+                                "abs_diff_q0": float(abs_diff_q0),
+                                "rel_diff_q0": float(rel_diff_q0),
+                                "abs_diff_z0": float(abs_diff_z0),
+                                "rel_diff_z0": float(rel_diff_z0),
+                            },
+                        }
+            except Exception as e:
+                doc["profile"] = {"status": "failed", "reason": f"{type(e).__name__}: {e}"}
 
     if not ok:
         # Write the artifact anyway (for debugging) but return non-zero.
