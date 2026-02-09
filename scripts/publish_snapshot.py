@@ -59,6 +59,11 @@ def main() -> int:
         help="Optional: path to the measured NextStat wheel (hashed into baseline_manifest.json).",
     )
     ap.add_argument("--hep", action="store_true", help="Run HEP suite.")
+    ap.add_argument(
+        "--hep-root-baseline",
+        action="store_true",
+        help="Also run the optional ROOT/RooFit reference-path baseline for the HEP suite (best-effort; may be skipped if PyROOT is unavailable).",
+    )
     ap.add_argument("--pharma", action="store_true", help="Run pharma suite.")
     ap.add_argument("--bayesian", action="store_true", help="Run Bayesian suite.")
     ap.add_argument(
@@ -146,6 +151,8 @@ def main() -> int:
             cmd.append("--deterministic")
         if args.fit:
             cmd.extend(["--fit", "--fit-repeat", str(int(args.fit_repeat))])
+        if args.hep_root_baseline:
+            cmd.append("--root-baseline")
         subprocess.check_call(cmd, cwd=str(repo_root), env=env)
         results.append(hep_out / "hep_suite.json")
         # Generate a small README snippet for humans (does not replace machine JSONs).
@@ -268,6 +275,7 @@ def main() -> int:
     schema_bayes_suite = repo_root / "manifests/schema/bayesian_benchmark_suite_result_v1.schema.json"
     schema_ml_case = repo_root / "manifests/schema/ml_benchmark_result_v1.schema.json"
     schema_ml_suite = repo_root / "manifests/schema/ml_benchmark_suite_result_v1.schema.json"
+    schema_hep_root = repo_root / "manifests/schema/hep_root_baseline_result_v1.schema.json"
     for r in results:
         obj = load_json(r)
         sv = str(obj.get("schema_version", ""))
@@ -275,6 +283,14 @@ def main() -> int:
             validate_json(r, schema_suite)
             for e in obj.get("cases", []):
                 validate_json((r.parent / e["path"]).resolve(), schema_case)
+            for b in obj.get("baselines", []):
+                p = (r.parent / b["path"]).resolve()
+                try:
+                    inst = load_json(p)
+                except Exception:
+                    continue
+                if inst.get("schema_version") == "nextstat.hep_root_baseline_result.v1":
+                    validate_json(p, schema_hep_root)
         elif sv == "nextstat.pharma_benchmark_suite_result.v1":
             validate_json(r, schema_pharma_suite)
             for e in obj.get("cases", []):
