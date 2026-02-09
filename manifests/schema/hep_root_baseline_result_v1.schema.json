@@ -40,7 +40,21 @@
       "properties": {
         "muhat": { "type": "number" },
         "nll": { "type": "number" },
-        "minimizer_rc": { "type": "integer" }
+        "minimizer_rc": { "type": "integer" },
+        "minimizer": { "type": "string" },
+        "strategy": { "type": "integer" }
+      }
+    },
+    "fit_conditional": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["poi0", "nll", "minimizer_rc"],
+      "properties": {
+        "poi0": { "type": "number" },
+        "nll": { "type": "number" },
+        "minimizer_rc": { "type": "integer" },
+        "minimizer": { "type": "string" },
+        "strategy": { "type": "integer" }
       }
     },
     "profile": {
@@ -53,6 +67,14 @@
         "q0": { "type": "number", "minimum": 0 },
         "z0": { "type": "number", "minimum": 0 }
       }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "params_mu0": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
     }
   }
 }
