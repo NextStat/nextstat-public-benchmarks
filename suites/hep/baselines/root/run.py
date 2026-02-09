@@ -17,49 +17,57 @@ from pathlib import Path
 
 
 def _workspace_supported(ws: dict) -> tuple[bool, str]:
-    # Minimal "reference path" support: one POI normfactor "mu" on the signal sample, no other modifiers.
+    # Minimal "reference path" support:
+    # - POI `mu` as a normfactor on the `signal` sample
+    # - optional `shapesys` modifiers (treated as per-bin Gaussian-constrained additive deformations)
+    # - single channel (for now)
     try:
         channels = ws.get("channels") or []
         observations = ws.get("observations") or []
         measurements = ws.get("measurements") or []
         if not channels or not observations or not measurements:
             return False, "workspace missing channels/observations/measurements"
+        if len(channels) != 1:
+            return False, "only single-channel workspaces are supported (reference baseline)"
         poi = measurements[0].get("config", {}).get("poi")
         if poi != "mu":
             return False, f"unsupported poi: {poi!r} (expected 'mu')"
-        # All samples must have only an optional normfactor(mu) modifier; no systematics.
-        for ch in channels:
-            for s in ch.get("samples") or []:
-                mods = s.get("modifiers") or []
-                for m in mods:
-                    t = m.get("type")
-                    n = m.get("name")
-                    if t == "normfactor" and n == "mu":
-                        continue
-                    return False, f"unsupported modifier: {t}:{n}"
+        # All samples must have only:
+        # - normfactor(mu) on the signal sample
+        # - shapesys on any sample (per-bin)
+        ch = channels[0]
+        for s in ch.get("samples") or []:
+            sample_name = s.get("name")
+            mods = s.get("modifiers") or []
+            for m in mods:
+                t = m.get("type")
+                n = m.get("name")
+                if t == "normfactor" and n == "mu" and sample_name == "signal":
+                    continue
+                if t == "shapesys":
+                    data = m.get("data")
+                    if not isinstance(data, list):
+                        return False, f"shapesys modifier {n!r} must have list data"
+                    continue
+                return False, f"unsupported modifier: {t}:{n}"
         return True, ""
     except Exception as e:
         return False, f"workspace parse error: {type(e).__name__}: {e}"
 
 
-def _extract_counts(ws: dict) -> tuple[list[float], list[float], list[float]]:
-    # Returns (signal_yields, background_yields, observed_counts) for the first channel.
+def _extract_channel(ws: dict) -> tuple[dict, list[float]]:
     ch = (ws.get("channels") or [])[0]
-    obs = (ws.get("observations") or [])[0]
-    obs_counts = [float(x) for x in (obs.get("data") or [])]
-
-    sig = None
-    bkg = None
-    for s in ch.get("samples") or []:
-        if s.get("name") == "signal":
-            sig = [float(x) for x in (s.get("data") or [])]
-        if s.get("name") == "background":
-            bkg = [float(x) for x in (s.get("data") or [])]
-    if sig is None or bkg is None:
-        raise RuntimeError("expected samples named 'signal' and 'background'")
-    if not (len(sig) == len(bkg) == len(obs_counts)):
-        raise RuntimeError("inconsistent bin counts across signal/background/observations")
-    return sig, bkg, obs_counts
+    ch_name = ch.get("name")
+    obs_counts: list[float] | None = None
+    for o in ws.get("observations") or []:
+        if o.get("name") == ch_name:
+            obs_counts = [float(x) for x in (o.get("data") or [])]
+            break
+    if obs_counts is None:
+        # Fallback: first observation.
+        obs = (ws.get("observations") or [])[0]
+        obs_counts = [float(x) for x in (obs.get("data") or [])]
+    return ch, obs_counts
 
 
 def main() -> int:
@@ -130,25 +138,120 @@ def main() -> int:
             out_path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
             return 0
 
-        signal, background, observed = _extract_counts(ws_obj)
+        ch, observed = _extract_channel(ws_obj)
+        samples = ch.get("samples") or []
+        if not samples:
+            raise RuntimeError("workspace has no samples")
 
-        # Build a minimal RooFit NLL:
-        #   NLL(mu) = sum_i [nu_i(mu) - n_i * log nu_i(mu)]   (dropping constants log(n!))
-        #   nu_i(mu) = mu*s_i + b_i
+        n_bins = len(observed)
+        if n_bins == 0:
+            raise RuntimeError("workspace has zero bins")
+
+        # POI.
         mu = ROOT.RooRealVar("mu", "mu", 1.0, 0.0, 20.0)
 
+        # Per-bin nuisance parameters for shapesys (Gaussian(0,1) penalty; additive sigma*alpha).
+        shape_alphas: list = []
+        shape_penalties = ROOT.RooArgList()
+
+        # Build per-bin expected nu_i = sum_a nu_{a,i}.
+        nu_terms: list = []
+        for i in range(n_bins):
+            # Start with 0.0 as RooConstVar to sum into.
+            nu_i_terms = ROOT.RooArgList()
+            for s in samples:
+                s_name = str(s.get("name") or "sample")
+                nom = [float(x) for x in (s.get("data") or [])]
+                if len(nom) != n_bins:
+                    raise RuntimeError(f"sample {s_name!r} has {len(nom)} bins, expected {n_bins}")
+
+                # Base yield for this sample and bin.
+                base = ROOT.RooConstVar(f"nom_{s_name}_{i}", f"nom_{s_name}_{i}", float(nom[i]))
+                yield_expr = base
+
+                # Apply shapesys modifiers (additive sigma_i * alpha_i).
+                for m in s.get("modifiers") or []:
+                    if m.get("type") != "shapesys":
+                        continue
+                    mod_name = str(m.get("name") or "shapesys")
+                    sigmas = m.get("data")
+                    if not isinstance(sigmas, list) or len(sigmas) != n_bins:
+                        raise RuntimeError(
+                            f"shapesys {mod_name!r} on sample {s_name!r} has invalid data length"
+                        )
+                    sigma_i = float(sigmas[i])
+                    if sigma_i == 0.0:
+                        continue
+
+                    # Bounds chosen to keep yields positive:
+                    #   base + alpha*sigma > eps  => alpha > -(base-eps)/sigma
+                    eps = 1e-9
+                    lo = (-(float(nom[i]) - eps) / sigma_i) if sigma_i > 0 else -10.0
+                    lo = max(lo, -50.0)
+                    hi = 50.0
+                    alpha = ROOT.RooRealVar(
+                        f"alpha_{s_name}_{mod_name}_{i}",
+                        f"alpha_{s_name}_{mod_name}_{i}",
+                        0.0,
+                        float(lo),
+                        float(hi),
+                    )
+                    shape_alphas.append(alpha)
+                    sigma = ROOT.RooConstVar(
+                        f"sigma_{s_name}_{mod_name}_{i}",
+                        f"sigma_{s_name}_{mod_name}_{i}",
+                        float(sigma_i),
+                    )
+                    delta = ROOT.RooFormulaVar(
+                        f"delta_{s_name}_{mod_name}_{i}",
+                        "@0*@1",
+                        ROOT.RooArgList(alpha, sigma),
+                    )
+                    yield_expr = ROOT.RooFormulaVar(
+                        f"yield_{s_name}_{mod_name}_{i}",
+                        "@0+@1",
+                        ROOT.RooArgList(yield_expr, delta),
+                    )
+                    # Gaussian penalty: 0.5*alpha^2 (dropping constant).
+                    pen = ROOT.RooFormulaVar(
+                        f"pen_{s_name}_{mod_name}_{i}",
+                        "0.5*(@0*@0)",
+                        ROOT.RooArgList(alpha),
+                    )
+                    shape_penalties.add(pen)
+
+                # Apply mu normfactor to the signal sample if present.
+                has_mu = any(
+                    (mm.get("type") == "normfactor" and mm.get("name") == "mu")
+                    for mm in (s.get("modifiers") or [])
+                )
+                if has_mu:
+                    if s_name != "signal":
+                        raise RuntimeError("normfactor(mu) only supported on sample named 'signal'")
+                    yield_expr = ROOT.RooFormulaVar(
+                        f"yield_{s_name}_{i}_mu",
+                        "@0*@1",
+                        ROOT.RooArgList(mu, yield_expr),
+                    )
+
+                nu_i_terms.add(yield_expr)
+
+            # Sum samples -> nu_i
+            nu_i = ROOT.RooAddition(f"nu_{i}", f"nu_{i}", nu_i_terms)
+            nu_terms.append(nu_i)
+
+        # NLL terms: sum_i [nu_i - n_i*log(nu_i)] + sum penalties.
         terms = ROOT.RooArgList()
-        for i, (s_i, b_i, n_i) in enumerate(zip(signal, background, observed)):
-            s = ROOT.RooConstVar(f"s_{i}", f"s_{i}", float(s_i))
-            b = ROOT.RooConstVar(f"b_{i}", f"b_{i}", float(b_i))
+        for i, n_i in enumerate(observed):
             n = ROOT.RooConstVar(f"n_{i}", f"n_{i}", float(n_i))
-            nu = ROOT.RooFormulaVar(f"nu_{i}", "@0*@1+@2", ROOT.RooArgList(mu, s, b))
             t = ROOT.RooFormulaVar(
-                f"nll_{i}",
+                f"nll_bin_{i}",
                 "@0-@1*log(@0)",
-                ROOT.RooArgList(nu, n),
+                ROOT.RooArgList(nu_terms[i], n),
             )
             terms.add(t)
+        for j in range(shape_penalties.getSize()):
+            terms.add(shape_penalties.at(j))
 
         nll = ROOT.RooAddition("nll", "nll", terms)
 
@@ -173,8 +276,13 @@ def main() -> int:
 
         doc["status"] = "ok" if rc == 0 else "failed"
         doc["reason"] = "" if rc == 0 else f"root_minimizer_failed:rc={rc}"
-        doc["fit"] = {"muhat": muhat, "nll": nll_free, "minimizer_rc": rc}
+        doc["fit"] = {
+            "muhat": muhat,
+            "nll": nll_free,
+            "minimizer_rc": rc,
+        }
         doc["profile"] = {"poi0": 0.0, "nll_mu0": nll_mu0, "q0": q0, "z0": z0}
+        doc["meta"]["n_nuisance_shapesys"] = int(len(shape_alphas))
     except Exception as e:
         doc["status"] = "skipped"
         doc["reason"] = f"{type(e).__name__}: {e}"
