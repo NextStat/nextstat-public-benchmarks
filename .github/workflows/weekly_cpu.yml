@@ -36,20 +36,11 @@ jobs:
           d="$(date -u +%Y-%m-%d)"
           echo "SNAPSHOT_ID=snapshot-weekly-cpu-${d}-run${GITHUB_RUN_ID}" >> "${GITHUB_ENV}"
 
-      - name: Validate NextStat source settings
-        env:
-          NEXTSTAT_REPO: ${{ vars.NEXTSTAT_WEEKLY_SOURCE_REPO || 'NextStat/nextstat.io' }}
-          NEXTSTAT_REF: ${{ vars.NEXTSTAT_WEEKLY_SOURCE_REF || 'main' }}
-        run: |
-          set -euo pipefail
-          echo "NEXTSTAT_REPO=${NEXTSTAT_REPO}" >> "${GITHUB_ENV}"
-          echo "NEXTSTAT_REF=${NEXTSTAT_REF}" >> "${GITHUB_ENV}"
-
       - name: Checkout NextStat source (build wheel)
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.NEXTSTAT_REPO }}
-          ref: ${{ env.NEXTSTAT_REF }}
+          repository: NextStat/nextstat.io
+          ref: main
           path: nextstat-src
 
       - name: Build NextStat wheel (from source)
@@ -73,8 +64,8 @@ jobs:
           cp "${WHEEL}" "tmp/${WHEEL_NAME}"
           SHA="$(sha256sum "tmp/${WHEEL_NAME}" | awk '{print $1}')"
           echo "Built wheel sha256: ${SHA}"
-          echo "NEXTSTAT_SOURCE_REPO=${NEXTSTAT_REPO}" >> "${GITHUB_ENV}"
-          echo "NEXTSTAT_SOURCE_REF=${NEXTSTAT_REF}" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_SOURCE_REPO=NextStat/nextstat.io" >> "${GITHUB_ENV}"
+          echo "NEXTSTAT_SOURCE_REF=main" >> "${GITHUB_ENV}"
           echo "NEXTSTAT_SOURCE_SHA=$(cd nextstat-src && git rev-parse HEAD)" >> "${GITHUB_ENV}"
           echo "NEXTSTAT_WHEEL_NAME=${WHEEL_NAME}" >> "${GITHUB_ENV}"
 
@@ -131,4 +122,3 @@ jobs:
         with:
           name: doi-package-${{ env.SNAPSHOT_ID }}
           path: tmp/zenodo_out/
-
