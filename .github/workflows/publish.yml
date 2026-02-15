@@ -64,14 +64,18 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, cpu]
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
+
+      - name: Add runner tools to PATH
+        run: |
+          echo "$HOME/venv/bin" >> "${GITHUB_PATH}"
 
       - name: Install harness deps
         run: |
@@ -148,11 +152,10 @@ jobs:
 
       - name: Build NextStat wheel (from source)
         if: ${{ inputs.nextstat_wheel_url == '' }}
-        uses: PyO3/maturin-action@v1
-        with:
-          working-directory: nextstat-src/${{ inputs.nextstat_py_subdir }}
-          command: build
-          args: --release --out dist
+        run: |
+          set -euo pipefail
+          cd nextstat-src/${{ inputs.nextstat_py_subdir }}
+          maturin build --release --out dist
 
       - name: Select built wheel
         if: ${{ inputs.nextstat_wheel_url == '' }}

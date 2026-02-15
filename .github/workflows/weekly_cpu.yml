@@ -11,14 +11,18 @@ permissions:
 
 jobs:
   weekly-cpu:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, cpu]
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
+
+      - name: Add runner tools to PATH
+        run: |
+          echo "$HOME/venv/bin" >> "${GITHUB_PATH}"
 
       - name: Install harness deps
         run: |
@@ -44,11 +48,10 @@ jobs:
           path: nextstat-src
 
       - name: Build NextStat wheel (from source)
-        uses: PyO3/maturin-action@v1
-        with:
-          working-directory: nextstat-src/bindings/ns-py
-          command: build
-          args: --release --out dist
+        run: |
+          set -euo pipefail
+          cd nextstat-src/bindings/ns-py
+          maturin build --release --out dist
 
       - name: Select built wheel
         run: |
