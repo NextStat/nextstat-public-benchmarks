@@ -3,6 +3,31 @@
   "snapshots": [
     {
       "artifacts": {
+        "baseline_manifest_sha256": "d02d7dc0ae1bf9b6e22f373a769542652597e03491083ca84892750a4bd88287",
+        "snapshot_index_sha256": "b2150a9d5e159af076a0baef9de8a549fe23d8f0e80ed88283be75769f92896a"
+      },
+      "generated_at": "2026-11-23T15:29:47.959438Z",
+      "git": {
+        "ref": "refs/heads/main",
+        "repository": "NextStat/nextstat-public-benchmarks",
+        "sha": "77d90c348d1378cb11b546042e15031dd0806df3"
+      },
+      "links": {
+        "github_run_url": "https://github.com/NextStat/nextstat-public-benchmarks/actions/runs/45205813090"
+      },
+      "snapshot_id": "snapshot-weekly-gpu-2026-11-23-run45205813090",
+      "suite": "weekly-gpu",
+      "workflow": {
+        "GITHUB_JOB": "weekly-gpu",
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_RUN_ID": "45205813090",
+        "GITHUB_WORKFLOW": "Weekly Snapshot (GPU)",
+        "RUNNER_ARCH": "X64",
+        "RUNNER_OS": "Linux"
+      }
+    },
+    {
+      "artifacts": {
         "baseline_manifest_sha256": "281e9c4085e0cfde7e9fada3121b0ed988f7c35e678aba9c083ed0bd77b03963",
         "snapshot_index_sha256": "c96608b84e86c34637083a1073b302801b02a972f77b2e91228ea21377ffcb3a"
       },
@@ -1077,5 +1102,5 @@
       }
     }
   ],
-  "updated_at": "2026-11-16T13:13:04.931799Z"
+  "updated_at": "2026-11-23T15:29:48.009065Z"
 }
